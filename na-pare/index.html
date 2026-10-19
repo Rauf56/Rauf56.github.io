@@ -124,6 +124,10 @@
   .install { margin: 18px 0 0; padding: 14px; border-radius: var(--radius); background: var(--card); }
   .install b { display: block; margin-bottom: 4px; }
   .install p { margin: 4px 0 10px; color: var(--hint); font-size: 13px; }
+  .install .row2 { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+  .install .help { margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--line); }
+  .install .help p { margin: 6px 0; }
+  .install .help b { color: var(--text); }
   .note { margin: 0 0 12px; padding: 10px 12px; border-radius: 12px; font-size: 13px; line-height: 1.35;
     background: color-mix(in srgb, var(--practice) 16%, transparent); }
   .pill { display: inline-block; vertical-align: middle; margin-left: 8px; padding: 2px 8px; border-radius: 999px; font-size: 11px;
@@ -360,40 +364,79 @@ function showBanner(savedAt, stale) {
 }
 
 const standalone = () => window.matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
-let deferredPrompt = null;
+let deferredPrompt = null, installOpen = true, helpShown = false, homeTimer = null, homeAdded = false;
 window.addEventListener('beforeinstallprompt', (e) => { e.preventDefault(); deferredPrompt = e; renderInstall(); });
-window.addEventListener('appinstalled', () => { deferredPrompt = null; $('install').innerHTML = ''; });
+window.addEventListener('appinstalled', () => { deferredPrompt = null; homeAdded = true; renderInstall(); });
+
+// Ссылка для установки без служебных параметров Telegram (но С расписанием в ?d=, чтобы оно сохранилось и в браузере)
+const plainUrl = () => location.origin + location.pathname + location.search;
+function openInBrowser() {
+  const u = plainUrl();
+  if (inTg && typeof tg.openLink === 'function') { try { tg.openLink(u, { try_browser: 'chrome' }); return; } catch (e) {} }
+  window.open(u, '_blank');
+}
+
+const HELP_HTML = `<div class="help"><b>Не появился значок?</b>
+  <p>1. Установка работает только из <b>Chrome</b> (меню ⋮ → «Установить приложение» или «Добавить на главный экран»), а не из
+  встроенного браузера Telegram или Mi Браузера. Нажмите «Открыть в браузере» выше и выберите Chrome.</p>
+  <p>2. <b>Xiaomi / Redmi / POCO (HyperOS, MIUI):</b> система по умолчанию молча не создаёт ярлыки. Разрешите: Настройки → Приложения →
+  Управление приложениями → <b>Chrome</b> (и <b>Telegram</b>) → Другие разрешения → «Ярлыки на рабочем столе» → «Разрешить».</p>
+  <p>3. Не вышло — добавьте страницу в закладки или «Закрепить»: расписание всё равно сохранится в телефоне.</p></div>`;
 
 function renderInstall() {
   const box = $('install');
   let dismissed = false;
   try { dismissed = localStorage.getItem('chelgu-app:install-dismissed') === '1'; } catch (e) {}
-  if (standalone() || dismissed || !data) { box.innerHTML = ''; return; }
-  const close = `<button class="btn ghost" id="inst-x">Скрыть</button>`;
-  let html = '';
-  if (tgSupports('8.0') && typeof tg.addToHomeScreen === 'function') {
-    html = `<b>📲 Ярлык на рабочий стол</b><p>Откроется сразу в Telegram, одним касанием.</p>
-      <button class="btn" id="inst-go">Добавить на главный экран</button> ${close}`;
-  } else if (deferredPrompt) {
-    html = `<b>📲 Установить приложение</b><p>Значок на рабочем столе, работает даже без интернета.</p>
-      <button class="btn" id="inst-go">Установить</button> ${close}`;
-  } else if (!inTg && /iphone|ipad|ipod/i.test(navigator.userAgent)) {
-    html = `<b>📲 Добавить на рабочий стол</b><p>Нажмите «Поделиться» ⬆️ внизу Safari и выберите «На экран “Домой”».</p>${close}`;
-  } else if (!inTg) {
-    html = `<b>📲 Добавить на рабочий стол</b><p>В меню браузера (⋮) выберите «Установить приложение» или «Добавить на главный экран».</p>${close}`;
+  if (standalone() || !data) { box.innerHTML = ''; return; }
+  if (homeAdded) { box.innerHTML = '<div class="install fade"><b>✅ Значок добавлен</b><p>Ищите его на рабочем столе.</p></div>'; return; }
+  if (dismissed && !installOpen) {   // карточка скрыта, но способ вернуть её остаётся всегда
+    box.innerHTML = '<div class="foot"><button class="btn ghost" id="inst-open">📲 Добавить на рабочий стол</button></div>';
+    $('inst-open').onclick = () => { installOpen = true; renderInstall(); };
+    return;
   }
-  box.innerHTML = html ? `<div class="install fade">${html}</div>` : '';
+  const canTg = tgSupports('8.0') && typeof tg.addToHomeScreen === 'function';
+  let body = '', buttons = '';
+  if (canTg) {
+    body = '<b>📲 Значок на рабочий стол</b><p>Откроется сразу в Telegram, одним касанием.</p>';
+    buttons = '<button class="btn" id="inst-go">Добавить на главный экран</button>';
+  } else if (deferredPrompt) {
+    body = '<b>📲 Установить приложение</b><p>Значок на рабочем столе, работает даже без интернета.</p>';
+    buttons = '<button class="btn" id="inst-go">Установить</button>';
+  } else if (inTg) {
+    body = '<b>📲 Добавить на рабочий стол</b><p>В этой версии Telegram ярлык недоступен. Откройте приложение в браузере и установите его оттуда.</p>';
+  } else if (/iphone|ipad|ipod/i.test(navigator.userAgent)) {
+    body = '<b>📲 Добавить на рабочий стол</b><p>Нажмите «Поделиться» ⬆️ внизу Safari и выберите «На экран “Домой”».</p>';
+  } else {
+    body = '<b>📲 Добавить на рабочий стол</b><p>В меню браузера (⋮) выберите «Установить приложение» или «Добавить на главный экран».</p>';
+  }
+  if (inTg || (!canTg && !deferredPrompt && !/iphone|ipad|ipod/i.test(navigator.userAgent))) {
+    buttons += ' <button class="btn" id="inst-browser">Открыть в браузере</button>';
+  }
+  buttons += ' <button class="btn ghost" id="inst-help">Не появился значок?</button> <button class="btn ghost" id="inst-x">Скрыть</button>';
+  box.innerHTML = `<div class="install fade">${body}<div class="row2">${buttons}</div>${helpShown ? HELP_HTML : ''}</div>`;
   const go = $('inst-go');
   if (go) go.onclick = async () => {
     haptic();
-    if (tgSupports('8.0') && typeof tg.addToHomeScreen === 'function') { try { tg.addToHomeScreen(); } catch (e) {} }
-    else if (deferredPrompt) { deferredPrompt.prompt(); try { await deferredPrompt.userChoice; } catch (e) {} deferredPrompt = null; box.innerHTML = ''; }
+    if (canTg) {
+      try { tg.addToHomeScreen(); } catch (e) {}
+      clearTimeout(homeTimer);   // нет подтверждения за 6 секунд — скорее всего, система не дала создать ярлык: покажем подсказку
+      homeTimer = setTimeout(() => { helpShown = true; renderInstall(); }, 6000);
+    } else if (deferredPrompt) {
+      deferredPrompt.prompt();
+      try { await deferredPrompt.userChoice; } catch (e) {}
+      deferredPrompt = null; renderInstall();
+    }
   };
+  const br = $('inst-browser'); if (br) br.onclick = () => { haptic(); openInBrowser(); };
+  const hp = $('inst-help'); if (hp) hp.onclick = () => { helpShown = !helpShown; renderInstall(); };
   const x = $('inst-x');
-  if (x) x.onclick = () => { try { localStorage.setItem('chelgu-app:install-dismissed', '1'); } catch (e) {} box.innerHTML = ''; };
+  if (x) x.onclick = () => { try { localStorage.setItem('chelgu-app:install-dismissed', '1'); } catch (e) {} installOpen = false; renderInstall(); };
   if (tgSupports('8.0') && typeof tg.checkHomeScreenStatus === 'function') {
-    try { tg.checkHomeScreenStatus((st) => { if (st === 'added') box.innerHTML = ''; }); } catch (e) {}
+    try { tg.checkHomeScreenStatus((st) => { if (st === 'added') { homeAdded = true; renderInstall(); } }); } catch (e) {}
   }
+}
+if (tgSupports('8.0') && typeof tg.onEvent === 'function') {
+  try { tg.onEvent('homeScreenAdded', () => { clearTimeout(homeTimer); homeAdded = true; renderInstall(); }); } catch (e) {}
 }
 
 (async () => {
