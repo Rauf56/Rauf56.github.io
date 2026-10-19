@@ -1,0 +1,439 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="color-scheme" content="light dark">
+<title>Расписание ЧелГУ</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" href="icons/favicon-32.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="theme-color" content="#2a7de1">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Пары ЧелГУ">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<style>
+  :root {
+    --bg: var(--tg-theme-bg-color, #ffffff);
+    --text: var(--tg-theme-text-color, #14171a);
+    --hint: var(--tg-theme-hint-color, #8a919a);
+    --link: var(--tg-theme-link-color, #2a7de1);
+    --btn: var(--tg-theme-button-color, #2a7de1);
+    --btn-text: var(--tg-theme-button-text-color, #ffffff);
+    --card: var(--tg-theme-secondary-bg-color, #f2f4f7);
+    --line: color-mix(in srgb, var(--hint) 22%, transparent);
+    --lecture: #3b82f6; --lab: #a855f7; --practice: #f59e0b; --seminar: #14b8a6; --other: #8a919a;
+    --live: #22c55e; --danger: #ef4444;
+    --radius: 16px;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: var(--tg-theme-bg-color, #17212b);
+      --text: var(--tg-theme-text-color, #f5f7fa);
+      --hint: var(--tg-theme-hint-color, #7d8b99);
+      --card: var(--tg-theme-secondary-bg-color, #232e3c);
+    }
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { margin: 0; background: var(--bg); color: var(--text);
+    font: 16px/1.35 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; }
+  body { padding-bottom: calc(24px + env(safe-area-inset-bottom)); }
+
+  header { position: sticky; top: 0; z-index: 5; background: var(--bg);
+    padding: calc(14px + env(safe-area-inset-top)) 16px 10px; border-bottom: 1px solid var(--line); }
+  .top { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+  .group { font-size: 20px; font-weight: 700; letter-spacing: -.01em; }
+  .tabs { display: inline-flex; background: var(--card); border-radius: 10px; padding: 3px; }
+  .tabs button { border: 0; background: transparent; color: var(--hint); font: inherit; font-size: 13px; font-weight: 600;
+    padding: 6px 12px; border-radius: 8px; }
+  .tabs button.on { background: var(--bg); color: var(--text); box-shadow: 0 1px 3px rgba(0,0,0,.12); }
+  .sub { color: var(--hint); font-size: 13px; margin-top: 2px; }
+
+  .chips { display: flex; gap: 8px; overflow-x: auto; padding: 12px 0 2px; margin: 0 -16px; padding-left: 16px; padding-right: 16px;
+    scrollbar-width: none; scroll-snap-type: x proximity; }
+  .chips::-webkit-scrollbar { display: none; }
+  .chip { flex: 0 0 auto; width: 54px; padding: 8px 0 7px; text-align: center; border: 0; border-radius: 14px;
+    background: var(--card); color: var(--text); font: inherit; scroll-snap-align: center; position: relative; }
+  .chip .wd { font-size: 11px; color: var(--hint); text-transform: uppercase; font-weight: 600; letter-spacing: .04em; }
+  .chip .dn { font-size: 19px; font-weight: 700; margin-top: 1px; }
+  .chip .dot { width: 5px; height: 5px; border-radius: 50%; background: var(--hint); margin: 4px auto 0; opacity: .0; }
+  .chip.has .dot { opacity: .6; }
+  .chip.today .wd { color: var(--btn); }
+  .chip.on { background: var(--btn); color: var(--btn-text); }
+  .chip.on .wd { color: color-mix(in srgb, var(--btn-text) 80%, transparent); }
+  .chip.on .dot { background: var(--btn-text); opacity: .9; }
+
+  main { padding: 14px 16px 0; }
+  .hero { border-radius: var(--radius); padding: 14px 16px; margin-bottom: 14px; color: #fff;
+    background: linear-gradient(135deg, #2a7de1, #6a5af9); }
+  .hero.live { background: linear-gradient(135deg, #16a34a, #22c55e); }
+  .hero .k { font-size: 12px; opacity: .85; text-transform: uppercase; letter-spacing: .06em; font-weight: 600; }
+  .hero .v { font-size: 18px; font-weight: 700; margin-top: 3px; }
+  .hero .m { font-size: 14px; opacity: .92; margin-top: 3px; }
+  .bar { height: 6px; border-radius: 3px; background: rgba(255,255,255,.3); margin-top: 10px; overflow: hidden; }
+  .bar > i { display: block; height: 100%; background: #fff; border-radius: 3px; }
+
+  .card { display: flex; gap: 12px; background: var(--card); border-radius: var(--radius); padding: 12px 14px 12px 12px;
+    margin-bottom: 10px; position: relative; overflow: hidden; }
+  .card::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 4px; background: var(--c, var(--other)); }
+  .card .t { flex: 0 0 52px; text-align: left; padding-left: 6px; }
+  .card .t b { display: block; font-size: 18px; letter-spacing: -.02em; }
+  .card .t span { color: var(--hint); font-size: 12px; }
+  .card .body { flex: 1; min-width: 0; }
+  .card .name { font-weight: 650; font-size: 16px; overflow-wrap: anywhere; }
+  .meta { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+  .tag { font-size: 12px; padding: 3px 8px; border-radius: 999px; background: color-mix(in srgb, var(--c, var(--other)) 16%, transparent);
+    color: var(--c, var(--other)); font-weight: 600; }
+  .tag.plain { background: color-mix(in srgb, var(--hint) 14%, transparent); color: var(--hint); font-weight: 500; }
+  .row { color: var(--hint); font-size: 14px; margin-top: 6px; display: flex; gap: 6px; align-items: center; }
+  .row a, .linkbtn { color: var(--link); text-decoration: none; font-weight: 600; }
+  .linkbtn { display: inline-flex; align-items: center; gap: 6px; margin-top: 10px; padding: 8px 12px; border-radius: 10px;
+    background: color-mix(in srgb, var(--link) 14%, transparent); border: 0; font: inherit; font-size: 14px; }
+  .k-lecture { --c: var(--lecture); } .k-lab { --c: var(--lab); } .k-practice { --c: var(--practice); } .k-seminar { --c: var(--seminar); }
+  .card.past { opacity: .55; }
+  .card.live { outline: 2px solid var(--live); outline-offset: -2px; }
+  .card.live::before { background: var(--live); }
+  .live-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--live); margin-right: 6px;
+    animation: pulse 1.6s infinite; }
+  @keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(34,197,94,.6); } 70% { box-shadow: 0 0 0 8px rgba(34,197,94,0); } 100% { box-shadow: 0 0 0 0 rgba(34,197,94,0); } }
+  .card.cancelled { opacity: .7; }
+  .card.cancelled .name { text-decoration: line-through; color: var(--hint); }
+  .card.cancelled::before { background: var(--danger); }
+  .tag.bad { --c: var(--danger); }
+
+  .empty { text-align: center; color: var(--hint); padding: 56px 20px; }
+  .empty .big { font-size: 54px; margin-bottom: 8px; }
+  .weekday { margin: 18px 2px 8px; font-weight: 700; font-size: 15px; display: flex; justify-content: space-between; align-items: baseline; }
+  .weekday small { color: var(--hint); font-weight: 500; font-size: 13px; }
+  .weekday.today { color: var(--btn); }
+  .mini { display: flex; gap: 10px; padding: 9px 12px; background: var(--card); border-radius: 12px; margin-bottom: 6px; align-items: center; border: 0; width: 100%;
+    color: inherit; font: inherit; text-align: left; }
+  .mini .tm { flex: 0 0 44px; font-weight: 700; font-size: 14px; font-variant-numeric: tabular-nums; }
+  .mini .nm { flex: 1; min-width: 0; font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .mini .rm { flex: 0 0 auto; color: var(--hint); font-size: 12px; }
+  .mini.cancelled .nm { text-decoration: line-through; color: var(--hint); }
+  .banner { margin: 12px 16px 0; padding: 10px 12px; border-radius: 12px; font-size: 13px; line-height: 1.35;
+    background: color-mix(in srgb, var(--link) 12%, transparent); color: var(--text); display: flex; gap: 10px; align-items: center; }
+  .banner.warn { background: color-mix(in srgb, var(--practice) 20%, transparent); }
+  .banner .x { flex: 1; }
+  .btn { border: 0; border-radius: 10px; padding: 8px 12px; font: inherit; font-size: 13px; font-weight: 650;
+    background: var(--btn); color: var(--btn-text); white-space: nowrap; }
+  .btn.ghost { background: transparent; color: var(--link); padding: 8px 6px; }
+  .install { margin: 18px 0 0; padding: 14px; border-radius: var(--radius); background: var(--card); }
+  .install b { display: block; margin-bottom: 4px; }
+  .install p { margin: 4px 0 10px; color: var(--hint); font-size: 13px; }
+  .note { margin: 0 0 12px; padding: 10px 12px; border-radius: 12px; font-size: 13px; line-height: 1.35;
+    background: color-mix(in srgb, var(--practice) 16%, transparent); }
+  .pill { display: inline-block; vertical-align: middle; margin-left: 8px; padding: 2px 8px; border-radius: 999px; font-size: 11px;
+    font-weight: 650; letter-spacing: .02em; background: color-mix(in srgb, var(--hint) 18%, transparent); color: var(--hint); }
+  .pill[hidden] { display: none; }
+  .chip.fc .dn { opacity: .62; }
+  .foot { text-align: center; color: var(--hint); font-size: 12px; margin: 20px 0 0; }
+  .err { padding: 40px 24px; text-align: center; color: var(--hint); }
+  .fade { animation: fade .18s ease-out; }
+  @keyframes fade { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+</style>
+</head>
+<body>
+<header>
+  <div class="top">
+    <div class="group"><span id="group">Расписание</span><span class="pill" id="offline" hidden>офлайн</span></div>
+    <div class="tabs" id="tabs">
+      <button data-view="day" class="on">День</button>
+      <button data-view="week">Недели</button>
+    </div>
+  </div>
+  <div class="sub" id="sub"></div>
+  <div class="chips" id="chips"></div>
+</header>
+<div id="banner"></div>
+<main id="main"></main>
+<div id="install" style="padding:0 16px"></div>
+
+<script>
+const tg = window.Telegram && window.Telegram.WebApp;
+// Скрипт Telegram подключён и в обычном браузере (там platform === 'unknown'): методы есть, но не работают
+const inTg = !!(tg && tg.platform && tg.platform !== 'unknown');
+const tgSupports = (v) => inTg && typeof tg.isVersionAtLeast === 'function' && tg.isVersionAtLeast(v);
+if (inTg) {
+  tg.ready(); tg.expand();
+  if (tgSupports('6.1')) { try { tg.setHeaderColor('bg_color'); tg.setBackgroundColor('bg_color'); } catch (e) {} }
+}
+const haptic = () => { if (tgSupports('6.1')) { try { tg.HapticFeedback.selectionChanged(); } catch (e) {} } };
+
+const WD = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'];
+const WD_FULL = ['Понедельник', 'Вторник', 'Среда', 'Четверг', 'Пятница', 'Суббота', 'Воскресенье'];
+const MONTHS = ['января', 'февраля', 'марта', 'апреля', 'мая', 'июня', 'июля', 'августа', 'сентября', 'октября', 'ноября', 'декабря'];
+const KIND = { l: ['lecture', 'Лекция', '📖'], b: ['lab', 'Лаба', '🔬'], p: ['practice', 'Практика', '✏️'], s: ['seminar', 'Семинар', '💬'] };
+
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const pad = (n) => String(n).padStart(2, '0');
+const iso = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+const parseDay = (s) => { const [y, m, d] = s.split('-').map(Number); return new Date(y, m - 1, d); };
+const wdIdx = (d) => (d.getDay() + 6) % 7;
+const minutes = (hhmm) => { const [h, m] = hhmm.split(':').map(Number); return h * 60 + m; };
+const hhmm = (min) => `${pad(Math.floor(min / 60) % 24)}:${pad(min % 60)}`;
+const safeUrl = (u) => /^https?:\/\//i.test(u || '') ? u : '';
+
+let data = null, byDay = {}, selected = iso(new Date()), view = 'day';
+
+async function decode() {
+  const q = new URLSearchParams(location.search);
+  let raw = q.get('d');
+  if (!raw) { const m = location.hash.match(/(?:^|[#&])d=([^&]+)/); raw = m && m[1]; }
+  if (!raw) return null;
+  const b64 = raw.replace(/-/g, '+').replace(/_/g, '/') + '='.repeat((4 - raw.length % 4) % 4);
+  const bytes = Uint8Array.from(atob(b64), (c) => c.charCodeAt(0));
+  const stream = new Blob([bytes]).stream().pipeThrough(new DecompressionStream('deflate-raw'));
+  return JSON.parse(await new Response(stream).text());
+}
+
+// Окно данных (s — первый день, h — сколько дней). Расписание вуза повторяется через 14 дней (чётная/нечётная неделя),
+// поэтому для дней за пределами окна достраиваем прогноз: берём тот же день цикла из окна. Так приложение полезно
+// офлайн весь семестр. Разовые занятия (a[8]) не повторяем; отмены — тоже разовые, в прогнозе их нет.
+const CYCLE = 14;
+const windowStart = () => (data && data.s ? parseDay(data.s) : null);
+const dayOffset = (day) => Math.round((parseDay(day) - windowStart()) / 86400000);
+function inWindow(day) {
+  if (!windowStart()) return true;                  // старый формат без окна: только то, что пришло
+  const k = dayOffset(day);
+  return k >= 0 && k < (data.h || CYCLE);
+}
+function forecastSource(day) {
+  if (!windowStart() || (data.h || 0) < CYCLE) return null;   // прогноз возможен только по полному циклу
+  const src = new Date(windowStart());
+  src.setDate(src.getDate() + (((dayOffset(day) % CYCLE) + CYCLE) % CYCLE));
+  return iso(src);
+}
+function lessonsOf(day) {
+  const fc = !inWindow(day);
+  const key = fc ? forecastSource(day) : day;
+  const out = (key ? (byDay[key] || []) : []).filter((a) => !(fc && a[8])).map((a) => ({
+    start: a[0], subject: a[1], room: a[2], teacher: a[3], link: safeUrl(a[4]), sub: a[5],
+    cancelled: fc ? false : !!a[6], kind: a[7], forecast: fc }));
+  out.forecast = fc && !!key;
+  return out;
+}
+
+function nowMinutes() { const n = new Date(); return n.getHours() * 60 + n.getMinutes(); }
+
+function hero() {
+  const today = iso(new Date());
+  const dur = data.p || 90;
+  const now = nowMinutes();
+  const list = lessonsOf(today).filter((l) => !l.cancelled);
+  const live = list.find((l) => minutes(l.start) <= now && now < minutes(l.start) + dur);
+  if (live) {
+    const s = minutes(live.start), left = s + dur - now;
+    return `<div class="hero live fade"><div class="k"><span class="live-dot" style="background:#fff"></span>Сейчас идёт</div>
+      <div class="v">${esc(live.subject)}</div>
+      <div class="m">${live.room ? esc(live.room === 'онлайн' ? 'онлайн' : 'ауд. ' + live.room) + ' · ' : ''}ещё ${left} мин</div>
+      <div class="bar"><i style="width:${Math.min(100, Math.round((now - s) / dur * 100))}%"></i></div></div>`;
+  }
+  for (let i = 0; i < 28; i++) {
+    const d = parseDay(today); d.setDate(d.getDate() + i);
+    for (const l of lessonsOf(iso(d)).filter((x) => !x.cancelled)) {
+      const start = minutes(l.start);
+      if (i === 0 && start <= now) continue;
+      const mins = i * 1440 + start - now;
+      const when = mins < 60 ? `через ${mins} мин` : mins < 1440 ? `через ${Math.floor(mins / 60)} ч ${mins % 60 ? (mins % 60) + ' мин' : ''}`.trim()
+        : i === 1 ? `завтра в ${l.start}` : `${WD[wdIdx(d)]}, ${d.getDate()} ${MONTHS[d.getMonth()]}`;
+      return `<div class="hero fade"><div class="k">Следующая пара${l.forecast ? ' · прогноз' : ''}</div><div class="v">${esc(l.subject)}</div>
+        <div class="m">${esc(l.start)} · ${when}${l.room ? ' · ' + esc(l.room === 'онлайн' ? 'онлайн' : 'ауд. ' + l.room) : ''}</div></div>`;
+    }
+  }
+  return '';
+}
+
+function card(l, day) {
+  const today = iso(new Date());
+  const dur = data.p || 90, s = minutes(l.start), now = nowMinutes();
+  const isToday = day === today;
+  const live = isToday && !l.cancelled && s <= now && now < s + dur;
+  const past = isToday && now >= s + dur;
+  const k = KIND[l.kind];
+  const cls = ['card', 'fade', k ? 'k-' + k[0] : '', live ? 'live' : '', past ? 'past' : '', l.cancelled ? 'cancelled' : ''].join(' ');
+  const room = l.room === 'онлайн' ? '🌐 онлайн' : l.room ? '📍 ауд. ' + esc(l.room) : '';
+  return `<div class="${cls}">
+    <div class="t"><b>${esc(l.start)}</b><span>${hhmm(s + dur)}</span></div>
+    <div class="body">
+      <div class="name">${live ? '<span class="live-dot"></span>' : ''}${esc(l.subject)}</div>
+      <div class="meta">
+        ${l.cancelled ? '<span class="tag bad">🚫 Отменена</span>' : ''}
+        ${k ? `<span class="tag">${k[2]} ${k[1]}</span>` : ''}
+        ${l.sub ? `<span class="tag plain">подгр. ${esc(l.sub)}</span>` : ''}
+      </div>
+      ${room ? `<div class="row">${room}</div>` : ''}
+      ${l.teacher ? `<div class="row">👤 ${esc(l.teacher)}</div>` : ''}
+      ${l.link && !l.cancelled ? `<a class="linkbtn" data-link="${esc(l.link)}">🔗 Открыть занятие</a>` : ''}
+    </div></div>`;
+}
+
+function dayTitle(day) {
+  const d = parseDay(day), diff = Math.round((d - parseDay(iso(new Date()))) / 86400000);
+  const tag = diff === 0 ? 'сегодня' : diff === 1 ? 'завтра' : diff === -1 ? 'вчера' : '';
+  return { text: `${WD_FULL[wdIdx(d)]}, ${d.getDate()} ${MONTHS[d.getMonth()]}`, tag };
+}
+
+function renderChips() {
+  const today = iso(new Date());
+  const start = parseDay(today);
+  const days = [];
+  for (let i = -1; i < 29; i++) { const d = new Date(start); d.setDate(d.getDate() + i); days.push(d); }
+  $('chips').innerHTML = days.map((d) => {
+    const k = iso(d), list = lessonsOf(k), has = list.length > 0;
+    return `<button class="chip ${k === selected ? 'on' : ''} ${k === today ? 'today' : ''} ${has ? 'has' : ''} ${list.forecast ? 'fc' : ''}" data-day="${k}">
+      <div class="wd">${WD[wdIdx(d)]}</div><div class="dn">${d.getDate()}</div><div class="dot"></div></button>`;
+  }).join('');
+  const on = $('chips').querySelector('.on');
+  if (on) on.scrollIntoView({ inline: 'center', block: 'nearest' });
+}
+
+function renderDay() {
+  const t = dayTitle(selected);
+  $('sub').textContent = t.text + (t.tag ? ' · ' + t.tag : '');
+  const list = lessonsOf(selected);
+  const h = selected === iso(new Date()) ? hero() : '';
+  const note = list.forecast ? `<div class="note fade">🔮 <b>Прогноз.</b> Расписание повторено по двухнедельному циклу — точные данные
+    придут, когда вы откроете приложение кнопкой из бота.</div>` : '';
+  const unknown = !list.length && !inWindow(selected) && !forecastSource(selected);
+  $('main').innerHTML = h + note + (list.length ? list.map((l) => card(l, selected)).join('')
+    : unknown ? `<div class="empty fade"><div class="big">🗓</div><div>Данных на этот день нет.<br>Откройте приложение из бота, чтобы обновить.</div></div>`
+    : `<div class="empty fade"><div class="big">😴</div><div>В этот день пар нет</div></div>`);
+}
+
+function renderWeeks() {
+  const today = parseDay(iso(new Date())), out = [];
+  for (let i = 0; i < 28; i++) {
+    const d = new Date(today); d.setDate(d.getDate() + i);
+    const k = iso(d), list = lessonsOf(k);
+    if (!list.length) continue;
+    const t = dayTitle(k);
+    out.push(`<div class="weekday ${i === 0 ? 'today' : ''}"><span>${t.text}</span><small>${list.forecast ? 'прогноз' : t.tag}</small></div>` +
+      list.map((l) => `<button class="mini ${l.cancelled ? 'cancelled' : ''}" data-day="${k}">
+        <span class="tm">${esc(l.start)}</span><span class="nm">${esc(l.subject)}</span>
+        <span class="rm">${l.room === 'онлайн' ? '🌐' : esc(l.room || '')}</span></button>`).join(''));
+  }
+  $('sub').textContent = 'Ближайшие четыре недели';
+  $('main').innerHTML = out.length ? out.join('') + `<div class="foot">Данные получены ${esc(data.n || '')}.<br>«Прогноз» — повтор расписания по двухнедельному циклу.</div>`
+    : `<div class="empty"><div class="big">😴</div><div>Ближайших пар нет</div></div>`;
+}
+
+function render() {
+  renderChips();
+  $('chips').style.display = view === 'day' ? '' : 'none';
+  view === 'day' ? renderDay() : renderWeeks();
+  document.querySelectorAll('#tabs button').forEach((b) => b.classList.toggle('on', b.dataset.view === view));
+}
+
+document.addEventListener('click', (e) => {
+  const chip = e.target.closest('[data-day]');
+  if (chip) { selected = chip.dataset.day; view = 'day'; haptic(); render(); window.scrollTo({ top: 0 }); return; }
+  const tab = e.target.closest('#tabs button');
+  if (tab) { view = tab.dataset.view; haptic(); render(); window.scrollTo({ top: 0 }); return; }
+  const link = e.target.closest('[data-link]');
+  if (link) {
+    const url = safeUrl(link.dataset.link);
+    if (url) { haptic(); inTg && tg.openLink ? tg.openLink(url) : window.open(url, '_blank'); }
+  }
+});
+
+// ───── запоминание последнего расписания: из него приложение открывается с рабочего стола, без чата ─────
+const STORE_KEY = 'chelgu-app:last';
+const store = {
+  get() { try { return JSON.parse(localStorage.getItem(STORE_KEY) || 'null'); } catch (e) { return null; } },
+  set(v) { try { localStorage.setItem(STORE_KEY, JSON.stringify(v)); } catch (e) {} },
+};
+const BOT_LINK = 'https://t.me/chelgu_na_pare_bot';
+const openBot = () => (inTg && tg.openTelegramLink) ? tg.openTelegramLink(BOT_LINK) : window.open(BOT_LINK, '_blank');
+
+function showBanner(savedAt, stale) {
+  const when = savedAt ? new Date(savedAt) : null;
+  const label = when ? `${when.getDate()} ${MONTHS[when.getMonth()]}, ${pad(when.getHours())}:${pad(when.getMinutes())}` : '';
+  $('banner').innerHTML = `<div class="banner ${stale ? 'warn' : ''}"><div class="x">${stale ? '⚠️ Расписание может быть устаревшим.' : '📦 Сохранённое расписание.'}
+    Обновлено ${esc(label)}. Чтобы обновить — откройте приложение кнопкой в боте.</div>
+    <button class="btn" id="open-bot">Бот</button></div>`;
+  $('open-bot').onclick = () => { haptic(); openBot(); };
+}
+
+const standalone = () => window.matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
+let deferredPrompt = null;
+window.addEventListener('beforeinstallprompt', (e) => { e.preventDefault(); deferredPrompt = e; renderInstall(); });
+window.addEventListener('appinstalled', () => { deferredPrompt = null; $('install').innerHTML = ''; });
+
+function renderInstall() {
+  const box = $('install');
+  let dismissed = false;
+  try { dismissed = localStorage.getItem('chelgu-app:install-dismissed') === '1'; } catch (e) {}
+  if (standalone() || dismissed || !data) { box.innerHTML = ''; return; }
+  const close = `<button class="btn ghost" id="inst-x">Скрыть</button>`;
+  let html = '';
+  if (tgSupports('8.0') && typeof tg.addToHomeScreen === 'function') {
+    html = `<b>📲 Ярлык на рабочий стол</b><p>Откроется сразу в Telegram, одним касанием.</p>
+      <button class="btn" id="inst-go">Добавить на главный экран</button> ${close}`;
+  } else if (deferredPrompt) {
+    html = `<b>📲 Установить приложение</b><p>Значок на рабочем столе, работает даже без интернета.</p>
+      <button class="btn" id="inst-go">Установить</button> ${close}`;
+  } else if (!inTg && /iphone|ipad|ipod/i.test(navigator.userAgent)) {
+    html = `<b>📲 Добавить на рабочий стол</b><p>Нажмите «Поделиться» ⬆️ внизу Safari и выберите «На экран “Домой”».</p>${close}`;
+  } else if (!inTg) {
+    html = `<b>📲 Добавить на рабочий стол</b><p>В меню браузера (⋮) выберите «Установить приложение» или «Добавить на главный экран».</p>${close}`;
+  }
+  box.innerHTML = html ? `<div class="install fade">${html}</div>` : '';
+  const go = $('inst-go');
+  if (go) go.onclick = async () => {
+    haptic();
+    if (tgSupports('8.0') && typeof tg.addToHomeScreen === 'function') { try { tg.addToHomeScreen(); } catch (e) {} }
+    else if (deferredPrompt) { deferredPrompt.prompt(); try { await deferredPrompt.userChoice; } catch (e) {} deferredPrompt = null; box.innerHTML = ''; }
+  };
+  const x = $('inst-x');
+  if (x) x.onclick = () => { try { localStorage.setItem('chelgu-app:install-dismissed', '1'); } catch (e) {} box.innerHTML = ''; };
+  if (tgSupports('8.0') && typeof tg.checkHomeScreenStatus === 'function') {
+    try { tg.checkHomeScreenStatus((st) => { if (st === 'added') box.innerHTML = ''; }); } catch (e) {}
+  }
+}
+
+(async () => {
+  let fromCache = false, savedAt = null;
+  try {
+    data = await decode();
+  } catch (e) {
+    data = null;
+  }
+  if (data) {
+    store.set({ savedAt: new Date().toISOString(), data });
+    try { if (navigator.storage && navigator.storage.persist) navigator.storage.persist(); } catch (e) {}   // не вычищать кэш
+  } else {
+    const last = store.get();
+    if (last && last.data) { data = last.data; savedAt = last.savedAt; fromCache = true; }
+  }
+  if (!data) {
+    $('main').innerHTML = `<div class="err"><div style="font-size:42px">📱</div>
+      Откройте приложение кнопкой из бота<br><b>@chelgu_na_pare_bot</b><br><br>
+      <button class="btn" id="open-bot">Открыть бота</button></div>`;
+    $('open-bot').onclick = openBot;
+    return;
+  }
+  $('group').textContent = data.t || 'Расписание';
+  (data.d || []).forEach(([day, items]) => { byDay[day] = items; });
+  if (fromCache) {
+    const ageDays = savedAt ? (Date.now() - new Date(savedAt).getTime()) / 86400000 : 99;
+    showBanner(savedAt, ageDays > 3 || !inWindow(iso(new Date())));
+  }
+  render();
+  renderInstall();
+  const online = () => { const o = $('offline'); if (o) o.hidden = navigator.onLine !== false; };
+  online();
+  window.addEventListener('online', online);
+  window.addEventListener('offline', online);
+  setInterval(() => { if (view === 'day' && selected === iso(new Date())) renderDay(); }, 30000);
+  if ('serviceWorker' in navigator && window.isSecureContext) {
+    navigator.serviceWorker.register('sw.js').catch(() => {});
+  }
+})();
+</script>
+</body>
+</html>
