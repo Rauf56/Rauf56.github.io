@@ -1,7 +1,7 @@
 // Офлайн-оболочка приложения: страница открывается без сети (расписание берётся из кэша / localStorage).
 // Оболочка (страница, иконки) — «сначала кэш, обновление в фоне»: свежая версия подтянется при следующем открытии.
 // Данные расписания (data/…) — «сначала сеть»: если интернет есть, всегда свежие; нет — последняя сохранённая копия.
-const CACHE = "chelgu-app-v3";
+const CACHE = "chelgu-app-v4";
 const SHELL = ["./", "./index.html", "./manifest.webmanifest", "./icons/icon-192.png", "./icons/icon-512.png",
   "./icons/apple-touch-icon.png", "./icons/favicon-32.png"];
 const DATA_TIMEOUT = 6000;

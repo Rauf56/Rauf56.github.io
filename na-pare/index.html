@@ -388,7 +388,20 @@ const store = {
   set(v) { try { localStorage.setItem(STORE_KEY, JSON.stringify(v)); } catch (e) {} },
 };
 const BOT_LINK = 'https://t.me/chelgu_na_pare_bot?start=app';
-const openBot = () => (inTg && tg.openTelegramLink) ? tg.openTelegramLink(BOT_LINK) : window.open(BOT_LINK, '_blank');
+const BOT_APP_LINK = 'tg://resolve?domain=chelgu_na_pare_bot&start=app';
+// Вне Telegram сайт t.me в России без VPN часто не открывается, а window.open в установленном приложении блокируется —
+// поэтому сразу открываем само приложение Telegram (tg://). Не открылось за 1,5 с (Telegram не установлен) — тогда t.me.
+function openBot() {
+  if (inTg && tg.openTelegramLink) { tg.openTelegramLink(BOT_LINK); return; }
+  let left = false;
+  const onHide = () => { if (document.hidden) left = true; };
+  document.addEventListener('visibilitychange', onHide);
+  setTimeout(() => {
+    document.removeEventListener('visibilitychange', onHide);
+    if (!left && !document.hidden) location.href = BOT_LINK;
+  }, 1500);
+  location.href = BOT_APP_LINK;
+}
 
 function showBanner(savedAt, stale) {
   const when = savedAt ? new Date(savedAt) : null;

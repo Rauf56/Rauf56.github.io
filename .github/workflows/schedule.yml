@@ -1,0 +1,35 @@
+# Автообновление расписаний для приложения rauf56.github.io/na-pare/ (кладёт сюда tools/publish_app.py из репозитория бота).
+# Каждые 3 часа скачивает файлы с csu.ru, разбирает и коммитит na-pare/data, только если что-то изменилось.
+# Сбой сайта ЧелГУ ничего не портит: старые данные остаются, приложение работает по ним.
+name: Расписание ЧелГУ
+on:
+  schedule:
+    - cron: "17 */3 * * *"
+  workflow_dispatch:
+  push:
+    paths: [".github/builder/**", ".github/workflows/schedule.yml"]
+permissions:
+  contents: write
+concurrency:
+  group: schedule
+  cancel-in-progress: false
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -r .github/builder/requirements.txt
+      - run: python .github/builder/tools/build_app_data.py na-pare/data
+      - name: Сохранить, если изменилось
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add na-pare/data
+          if git diff --cached --quiet; then echo "Расписание не изменилось"; exit 0; fi
+          git commit -m "Расписание: обновление с сайта ЧелГУ"
+          git pull --rebase origin "${GITHUB_REF_NAME}"
+          git push origin "HEAD:${GITHUB_REF_NAME}"
